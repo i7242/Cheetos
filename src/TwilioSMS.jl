@@ -7,11 +7,10 @@ using JSON
 
 function send_sms(message, from, to)
 
-    account_sid = ENV["TWILIO_ACCOUNT_SID"]
-    auth_token  = ENV["TWILIO_AUTH_TOKEN"]
-
-    endpoint = "api.twilio.com/2010-04-01/Accounts/$account_sid/Messages.json"
-    url = "https://$account_sid:$auth_token@$endpoint"
+    isdefined(twilio_account_sid) || (twilio_account_sid = ENV["TWILIO_ACCOUNT_SID"])
+    isdefined(twilio_auth_token) || (twilio_auth_token = ENV["TWILIO_AUTH_TOKEN"])
+    endpoint = "api.twilio.com/2010-04-01/Accounts/$twilio_account_sid/Messages.json"
+    url = "https://$twilio_account_sid:$twilio_auth_token@$endpoint"
 
     # This is a nice function:
     #   help?> HTTP.URIs.escapeuri
