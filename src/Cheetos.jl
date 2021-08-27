@@ -1,12 +1,10 @@
 module Cheetos
 
-
 using AlphaVantage
-using BusinessDays
-using Dates
+using BusinessDays:isbday 
+using Dates:today, hour, now
 
 include("TwilioSMS.jl")
-
 
 #=
   Depends on two external services
@@ -57,19 +55,6 @@ function is_trading_time()
     hour(now()) >= 10 && hour(now()) <= 5
 end
 
-#=
-  Get last trading day.
-    1. if today is trading day, return today
-    2. otherwise check and find one
-=#
-function last_trading_day()
-    td = today()
-    while !isbday(BDAY_CALENDAR, td)
-        td -= Day(1)
-    end
-    return string(td)
-end
-
 
 # TODO: change to JuliaFinance packages later
 #=
@@ -95,7 +80,12 @@ function init_watch_list()
     for key in keys(MY_DATA)
         item = Item(key, MY_DATA[key][1], MY_DATA[key][2], 0, Dict())
         for pd in PERIODS
-            td = last_trading_day()
+            # TODO: BusinessDays cause compile failed
+            #   need to check and fix, or switch package
+            #   td = string(tobday(BDAY_CALENDAR, today(), forward=false))
+            #   currently hard code to one day that works
+            td = "2021-08-25"
+            # TODO: how to limit to only get latest SMA data?
             price = SMA(key, INTERVAL, pd, TYPE)["Technical Analysis: SMA"][td]["SMA"]
             item.moving_averages[pd] = parse(Float64, price)
         end
@@ -104,8 +94,15 @@ function init_watch_list()
     end
 end
 
-# TODO
 function sync_moving_average_price()
+    for tm in watch_list
+        for pd in PERIODS
+            td = string(today())
+            price = SMA(tm.symbol, INTERVAL, pd, TYPE)["Technical Analysis: SMA"][td]["SMA"]
+            tm.moving_averages[pd] = parse(Float64, price)
+        end
+    end
+    @info "synced moving average for today..."
 end
 
 # TODO
@@ -124,12 +121,13 @@ end
 
 function watching()
     while true
-        hour(now()) == 5 && sync_ma_data()
+        hour(now()) == 6 && sync_moving_average_price()
         sleep(SLEEP_TIME)
+        @info "sleep for a while, waiting next wake up and check..."
     end
 end
 
 init_watch_list()
-# watching()
+watching()
 
 end # module
