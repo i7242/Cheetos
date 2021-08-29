@@ -6,34 +6,32 @@ using Dates:today, hour, now
 
 include("TwilioSMS.jl")
 
-#=
-  Depends on two external services
-    1. AlphaVantage: get stock price, moving average data
-    2. Twilio: send SMS notification to phone
-  related API key, account ID and token, should be exported to ENV
-=#
 AlphaVantage.global_key!(ENV["ALPHA_VANTAGE_API_KEY"])
 twilio_account_sid = ENV["TWILIO_ACCOUNT_SID"]
 twilio_auth_token = ENV["TWILIO_AUTH_TOKEN"]
+twilio_from = ENV["TWILIO_FROM"]
+twilio_to = ENV["TWILIO_TO"]
 
 #=
-  Trading time related constants.
+  Trade watching time related constants.
 =#
 BDAY_CALENDAR = "USNYSE"
-SLEEP_TIME = 60*30
+ONE_HOUR = 3600
+ONE_DAY = 86400
 
 #=
   Stock price related constants.
 =#
+PRICE_TYPE = "4. close"
 
 #=
   Moving average related constants.
-  More details see: https://www.alphavantage.co/documentation/
-  Not sure why, but ASML 120 day moving average data takes long time for response, so removed it
+  More details in: https://www.alphavantage.co/documentation/
+  Not sure why, some request takes long time to get response
 =#
 INTERVAL = "daily"
 PERIODS = [30, 60, 90]
-TYPE = "close"
+SMA_TYPE = "close"
 
 #= Dict for initialization:
     Symbol => (shares, avg_buy_price)
@@ -41,19 +39,6 @@ TYPE = "close"
 =#
 MY_DATA = Dict("AMZN"=>(1, 3000.0),
                "ASML"=>(2, 100.0))
-
-
-
-#=
-  Check if now is trading day and time.
-    1. depends on BusinessDays.jl
-    2. based on NY time
-=#
-function is_trading_time()
-    isbday(BDAY_CALENDAR, today()) || return false
-    # left some time at the end of the day
-    hour(now()) >= 10 && hour(now()) <= 5
-end
 
 
 # TODO: change to JuliaFinance packages later
@@ -76,43 +61,39 @@ end
 watch_list = []
 
 
+function sync_moving_average_price(tm::Item)
+    for pd in PERIODS
+        all_sma = SMA(tm.symbol, INTERVAL, pd, SMA_TYPE)["Technical Analysis: SMA"]
+        latest_sma = all_sma[max(keys(all_sma)...)]["SMA"]
+        tm.moving_averages[pd] = parse(Float64, latest_sma)
+    end
+    @info "synced moving average data for $(tm.symbol)"
+end
+
+function sync_current_price(tm::Item)
+    all_price = time_series_intraday(tm.symbol)["Time Series (1min)"]
+    latest_price = all_price[max(keys(all_price)...)][PRICE_TYPE]
+    tm.cur_price = parse(Float64, latest_price)
+    @info "synced latest price for $(tm.symbol)"
+end
+
 function init_watch_list()
     for key in keys(MY_DATA)
-        item = Item(key, MY_DATA[key][1], MY_DATA[key][2], 0, Dict())
-        for pd in PERIODS
-            # TODO: BusinessDays cause compile failed
-            #   need to check and fix, or switch package
-            #   td = string(tobday(BDAY_CALENDAR, today(), forward=false))
-            #   currently hard code to one day that works
-            td = "2021-08-25"
-            # TODO: how to limit to only get latest SMA data?
-            price = SMA(key, INTERVAL, pd, TYPE)["Technical Analysis: SMA"][td]["SMA"]
-            item.moving_averages[pd] = parse(Float64, price)
-        end
-        push!(watch_list, item)
-        @info item
+        tm = Item(key, MY_DATA[key][1], MY_DATA[key][2], 0, Dict())
+        sync_moving_average_price(tm)
+        sync_current_price(tm)
+        push!(watch_list, tm)
     end
-end
-
-function sync_moving_average_price()
-    for tm in watch_list
-        for pd in PERIODS
-            td = string(today())
-            price = SMA(tm.symbol, INTERVAL, pd, TYPE)["Technical Analysis: SMA"][td]["SMA"]
-            tm.moving_averages[pd] = parse(Float64, price)
-        end
-    end
-    @info "synced moving average for today..."
-end
-
-# TODO
-function sync_current_price()
-    # tmp_data = time_series_intraday("ASML", "5min")
-    # tmp_data["Time Series (5min)"]["2021-08-24 14:34:00"]["4. close"]
+    @info "initialized watch list:"
+    @info watch_list
 end
 
 # TODO
 function check_down_cross()
+end
+
+# TODO
+function check_up_cross()
 end
 
 # TODO
@@ -121,9 +102,27 @@ end
 
 function watching()
     while true
-        hour(now()) == 6 && sync_moving_average_price()
-        sleep(SLEEP_TIME)
-        @info "sleep for a while, waiting next wake up and check..."
+        # if !isbday(BDAY_CALENDAR, today())
+        #     @info "not business day, sleep on day"
+        #     sleep(ONE_DAY)
+        #     continue
+        # end
+
+        cur_hour = hour(now())
+        if 7 < cur_hour < 9
+            for tm in watch_list
+                sync_moving_average_price(tm)
+            end
+        end
+        if 9 < cur_hour < 17
+            for tm in watch_list
+                sync_current_price(tm)
+            end
+        end
+        @info "current status:"
+        @info watch_list
+        @info "waiting next sync"
+        sleep(ONE_HOUR)
     end
 end
 
