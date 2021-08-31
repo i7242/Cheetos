@@ -29,7 +29,6 @@ function send_sms(message, from, to)
 
 end
 
-# result = send_sms("Hello from Twilio! ☎", ENV["TWILIO_FROM_NUMBER"], ENV["TWILIO_TO_NUMBER"])
-# println(result["sid"])
+export send_sms
 
 end # module

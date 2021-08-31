@@ -1,8 +1,9 @@
 module Cheetos
 
 using AlphaVantage
-using BusinessDays:isbday 
-using Dates:today, hour, now
+using BusinessDays: isbday 
+using Dates: today, hour, now, dayname
+using DelimitedFiles: readdlm
 
 include("TwilioSMS.jl")
 
@@ -33,13 +34,10 @@ INTERVAL = "daily"
 PERIODS = [30, 60, 90]
 SMA_TYPE = "close"
 
-#= Dict for initialization:
-    Symbol => (shares, avg_buy_price)
-    Consider read from local config file later, maybe CSV.
+#=
+  Read current holdings from TSV file.
 =#
-MY_DATA = Dict("AMZN"=>(1, 3000.0),
-               "ASML"=>(2, 100.0))
-
+HOLDINGS = readdlm("holdings.tsv", '\t')
 
 # TODO: change to JuliaFinance packages later
 #=
@@ -52,7 +50,7 @@ MY_DATA = Dict("AMZN"=>(1, 3000.0),
 =#
 mutable struct Item
     symbol::String
-    shares::Int64
+    shares::Float64
     avg_buy_price::Float64
     cur_price::Float64
     moving_averages::Dict{Int64, Float64}
@@ -78,18 +76,29 @@ function sync_current_price(tm::Item)
 end
 
 function init_watch_list()
-    for key in keys(MY_DATA)
-        tm = Item(key, MY_DATA[key][1], MY_DATA[key][2], 0, Dict())
+    for row in 1:size(HOLDINGS)[1]
+        tm = Item(HOLDINGS[row, 1], HOLDINGS[row, 2], HOLDINGS[row, 3], 0, Dict())
         sync_moving_average_price(tm)
         sync_current_price(tm)
         push!(watch_list, tm)
     end
     @info "initialized watch list:"
     @info watch_list
+    TwilioSMS.send_sms("Initialized list, start watching!", twilio_from, twilio_to)
 end
 
-# TODO
-function check_down_cross()
+function check_down_cross(tm::Item)
+    if tm.cur_price < tm.avg_buy_price
+        TwilioSMS.send_sms("$(tm.symbol)'s current price $(tm.cur_price) is
+                           lower than our average buying price $(tm.avg_buy_price)! Time to buy!", twilio_from, twilio_to)
+    end
+
+    for days in keys(tm.moving_averages)
+        if tm.cur_price < tm.moving_averages[days]
+            TwilioSMS.send_sms("$(tm.symbol)'s current price $(tm.cur_price) is
+                               lower than $days day moving average $(tm.moving_averages[days])! Time to buy!", twilio_from, twilio_to)
+        end
+    end
 end
 
 # TODO
@@ -102,11 +111,16 @@ end
 
 function watching()
     while true
-        # if !isbday(BDAY_CALENDAR, today())
-        #     @info "not business day, sleep on day"
-        #     sleep(ONE_DAY)
-        #     continue
-        # end
+
+        if dayname(today()) == "Saturday"
+            TwilioSMS.send_sms("Saturday! Time to have a weekly earing review!", twilio_from, twilio_to)
+        end
+
+        if !isbday(BDAY_CALENDAR, today())
+            @info "not business day, sleep one day"
+            sleep(ONE_DAY)
+            continue
+        end
 
         cur_hour = hour(now())
         if 7 < cur_hour < 9
@@ -114,9 +128,11 @@ function watching()
                 sync_moving_average_price(tm)
             end
         end
+
         if 9 < cur_hour < 17
             for tm in watch_list
                 sync_current_price(tm)
+                check_down_cross(tm)
             end
         end
         @info "current status:"
@@ -126,7 +142,15 @@ function watching()
     end
 end
 
-init_watch_list()
-watching()
+function run()
+  try 
+    init_watch_list()
+    watching()
+  catch e
+      TwilioSMS.send_sms("Catched exception while watching! Will need to debug & restart manually!", twilio_from, twilio_to)
+  end
+end
+
+export run
 
 end # module
