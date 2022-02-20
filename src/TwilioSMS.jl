@@ -2,8 +2,9 @@ module TwilioSMS
 
 # Thanks to this blog: https://www.twilio.com/blog/sending-sms-with-julia-and-twilio
 
-using HTTP
-using JSON
+export send_sms
+
+using HTTP, JSON
 
 function send_sms(message, from, to)
 
@@ -28,7 +29,5 @@ function send_sms(message, from, to)
     end
 
 end
-
-export send_sms
 
 end # module

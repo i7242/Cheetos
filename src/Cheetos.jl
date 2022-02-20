@@ -1,13 +1,15 @@
 module Cheetos
 
+include("YahooFinance.jl")
+include("TwilioSMS.jl")
+
 using AlphaVantage
 using BusinessDays: isbday 
 using Dates: today, hour, now, dayname
 using DelimitedFiles: readdlm
 
-include("TwilioSMS.jl")
-
 AlphaVantage.global_key!(ENV["ALPHA_VANTAGE_API_KEY"])
+yahoo_api_key = ENV["YAHOO_API_KEY"]
 twilio_account_sid = ENV["TWILIO_ACCOUNT_SID"]
 twilio_auth_token = ENV["TWILIO_AUTH_TOKEN"]
 twilio_from = ENV["TWILIO_FROM"]
