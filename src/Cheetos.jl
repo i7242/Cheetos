@@ -13,6 +13,7 @@ export watching
 =#
 BDAY_CALENDAR = "USNYSE"
 ONE_HOUR = 3600
+THREE_HOUR = ONE_HOUR*3
 
 function watching()
   yahoo_api_key = ENV["YAHOO_API_KEY"]
@@ -44,7 +45,7 @@ function watching()
         end
     end
     
-    sleep(ONE_HOUR)
+    sleep(THREE_HOUR)
   end
 end
 
