@@ -9,13 +9,17 @@ using Dates: today, hour, now, dayname
 export watching
 
 #=
-  Trade watching time related constants.
+  Watching related constants.
 =#
+VOO = "VOO"
 BDAY_CALENDAR = "USNYSE"
 ONE_HOUR = 3600
-THREE_HOUR = ONE_HOUR*3
 
 function watching()
+
+  #=
+    Get the latest keys before running. However, will double check in each module.
+  =#
   yahoo_api_key = ENV["YAHOO_API_KEY"]
   twilio_account_sid = ENV["TWILIO_ACCOUNT_SID"]
   twilio_auth_token = ENV["TWILIO_AUTH_TOKEN"]
@@ -25,28 +29,38 @@ function watching()
   TwilioSMS.send_sms("Start to watching VOO price!", twilio_from, twilio_to)
 
   while true
-    if dayname(today()) == "Saturday"
-        TwilioSMS.send_sms("Saturday! Time to have a weekly earing review!", twilio_from, twilio_to)
-    end
 
-    b_day = isbday(BDAY_CALENDAR, today())
-    cur_hour = hour(now())
+    if isbday(BDAY_CALENDAR, today())
+      #=
+        Only check in the middle of the day.
+      =#
+      if 12 < hour(now()) < 14
+        data = YahooFinance.get_prices(VOO)["quoteResponse"]["result"][1]
+        fiftyDayAvgChangePercent = data["fiftyDayAverageChangePercent"]
+        twoHundredDayAvgChangePercent = data["twoHundredDayAverageChangePercent"]
+        regularMarketPrice = data["regularMarketPrice"]
+        fiftyTwoWeekLow = data["fiftyTwoWeekLow"]
 
-    if b_day && 9 < cur_hour < 17
-        prices = YahooFinance.get_prices("VOO")
-        fiftyDayAvg = prices["quoteResponse"]["result"][1]["fiftyDayAverage"]
-        twoHundredDayAvg = prices["quoteResponse"]["result"][1]["twoHundredDayAverage"]
-        fiftyDayAvgChange = prices["quoteResponse"]["result"][1]["fiftyDayAverageChange"]
-        twoHundredDayAvgChange = prices["quoteResponse"]["result"][1]["twoHundredDayAverageChange"]
-
-        if(fiftyDayAvgChange < 0 || twoHundredDayAvgChange < 0)
-          TwilioSMS.send_sms("VOO 50 day change $(fiftyDayAvgChange)($(fiftyDayAvgChange/fiftyDayAvg)%), 200 day change $(twoHundredDayAvgChange)($(twoHundredDayAvgChange/twoHundredDayAvg)%)",
-                              twilio_from, twilio_to)
+        if (fiftyDayAvgChangePercent < 0 || twoHundredDayAvgChangePercent < 0)
+          TwilioSMS.send_sms(
+            "VOO 50 day change percent: $fiftyDayAverageChangePercent%, 200 day change percent $twoHundredDayAverageChangePercent%",
+            twilio_from, twilio_to)
         end
+
+        if regularMarketPrice == fiftyTwoWeekLow
+          TwilioSMS.send_sms(
+            "Current VOO price $regularMarketPrice is the lowest in the past 52 weeks.",
+            twilio_from, twilio_to)
+        end
+
+        sleep(ONE_HOUR*4)
+      end
+
     end
     
-    sleep(THREE_HOUR)
+    sleep(ONE_HOUR)
   end
+
 end
 
 end # module

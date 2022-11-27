@@ -17,17 +17,10 @@ function send_sms(message, from, to)
     request_body = HTTP.URIs.escapeuri([:From => from, :To => to, :Body => message])
     request_headers = ["Content-Type" => "application/x-www-form-urlencoded"]
 
-    try
-        response = HTTP.post(url, request_headers, request_body)
-        return JSON.parse(String(response.body))
-    catch e
-        if e isa HTTP.ExceptionRequest.StatusError
-            error(JSON.parse(String(e.response.body))["message"])
-        else
-            rethrow()
-        end
-    end
-
+    return HTTP.post(url, request_headers, request_body) |>
+        r->r.body |>
+        String |>
+        JSON.parse
 end
 
 end # module
