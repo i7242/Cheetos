@@ -1,8 +1,8 @@
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.8.2"
+julia_version = "1.8.3"
 manifest_format = "2.0"
-project_hash = "76612f8df6802c3a8deea9104d0641c7c45b5e38"
+project_hash = "16ba252c4e0605a4cc5f90c8049dcad8b9b1bc2a"
 
 [[deps.ArgTools]]
 uuid = "0dad84c5-d112-42e6-8d28-ef12dabb789f"
@@ -30,6 +30,11 @@ deps = ["TranscodingStreams", "Zlib_jll"]
 git-tree-sha1 = "ded953804d019afa9a3f98981d99b33e3db7b6da"
 uuid = "944b1d66-785c-5afd-91f1-9de20f533193"
 version = "0.7.0"
+
+[[deps.ConfigEnv]]
+git-tree-sha1 = "1891cfd27ae8256e4e69574c93dc0d6eb839903e"
+uuid = "01234589-554d-41b7-ae5c-7b6ee2db6796"
+version = "1.0.0"
 
 [[deps.Dates]]
 deps = ["Printf"]

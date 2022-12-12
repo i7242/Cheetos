@@ -2,29 +2,28 @@ module Cheetos
 
 include("YahooFinance.jl")
 include("TwilioSMS.jl")
+include("TelegramBot.jl")
 
 using BusinessDays: isbday 
 using Dates: today, hour, now, dayname
+using ConfigEnv
 
 export watching
 
+
 #=
-  Watching related constants.
+  Load config to ENV, like API key
+=#
+dotenv()
+
+#=
+  Related constants.
 =#
 VOO = "VOO"
 BDAY_CALENDAR = "USNYSE"
 ONE_HOUR = 3600
 
 function watching()
-
-  #=
-    Get the latest keys before running. However, will double check in each module.
-  =#
-  yahoo_api_key = ENV["YAHOO_API_KEY"]
-  twilio_account_sid = ENV["TWILIO_ACCOUNT_SID"]
-  twilio_auth_token = ENV["TWILIO_AUTH_TOKEN"]
-  twilio_from = ENV["TWILIO_FROM"]
-  twilio_to = ENV["TWILIO_TO"]
 
   TwilioSMS.send_sms("Start to watching VOO price!", twilio_from, twilio_to)
 
