@@ -25,6 +25,8 @@ const BOT_URL_PRE="https://api.telegram.org/bot"
 const SUB="SUB" # need a better code for subscription...
 const VOO="VOO"
 
+
+
 """
 TGBot
   - hold api key of the bot
@@ -55,15 +57,32 @@ function get_TGBot()::TGBot
   TGBot(ENV["CHEETOS_TG_BOT_API_KEY"],Set())
 end
 
+
+
+
 """
 Only get the latest one update by set `offset=-1&limit=1`. Any message in between will be ignored.
+"""
+function get_update(key::String, offset::String)::Dict{Any,Any}
+  HTTP.get(BOT_URL_PRE*key*"/getUpdates?offset=$offset&limit=1").body |>
+    String |>
+    JSON.parse
+end
+
+"""
+Send text message.
+"""
+function send_message(key::String, id::String, msg::String)
+  HTTP.post(BOT_URL_PRE*key*"/sendMessage?chat_id="*id*"&text="*msg)
+end
+
+
+
+"""
 Original response body parsed to JSON will be returned.
 """
 function get_latest_update(bot::TGBot)::TGParcel
-  HTTP.get(BOT_URL_PRE*bot.api_key*"/getUpdates?offset=-1&limit=1").body |>
-    String |>
-    JSON.parse |>
-    body -> TGParcel(bot, body)
+  TGParcel(bot, get_update(bot.api_key, "-1"))
 end
 
 """
@@ -93,13 +112,15 @@ function get_update_id(parcel::TGParcel)::String
 end
 
 """
-Add chat id to subscription if got message "SUB!".
+Add chat id to subscription if got message "SUB".
   - this will modify the array of chat_id inside the bot
 """
 function handle_subscription!(parcel::TGParcel)::TGParcel
   isempty(parcel.body["result"]) && return parcel
   if (SUB == get_parcel_message(parcel))
-    push!(parcel.bot.chat_ids, get_chat_id(parcel))
+    chat_id = get_chat_id(parcel)
+    push!(parcel.bot.chat_ids, chat_id)
+    @info "added chat $chat_id to list)"
   end
   parcel
 end
@@ -113,21 +134,17 @@ function handle_voo_smv_60(parcel::TGParcel)::TGParcel
     df = get_voo_smv_60()
     msg = "$VOO : {time: $(df[1, "time"]), SMA: $(df[1, "SMA"])}"
     @info msg
-    HTTP.post(BOT_URL_PRE*parcel.bot.api_key*
-              "/sendMessage?chat_id="*
-              get_chat_id(parcel)*"&text="*msg)
+    send_message(parcel.bot.api_key, get_chat_id(parcel), msg)
   end
   parcel
 end
 
 """
-Send a random number.
+Send a random number for test usage.
 """
 function handle_random_response(parcel::TGParcel)::TGParcel
   isempty(parcel.body["result"]) && return parcel
-  HTTP.post(BOT_URL_PRE*parcel.bot.api_key*
-              "/sendMessage?chat_id="*
-              get_chat_id(parcel)*"&text="*string(rand()))
+  send_message(parcel.bot.api_key, get_chat_id(parcel), string(rand()))
   parcel
 end
 
@@ -139,10 +156,7 @@ Send a request with next offset id so current message get confirmed.
 function handle_confirm_update(parcel::TGParcel)::TGParcel
   isempty(parcel.body["result"]) && return parcel
   next_id = string(parse(Int64, get_update_id(parcel))+1)
-  HTTP.get(BOT_URL_PRE*parcel.bot.api_key*"/getUpdates?offset=$next_id&limit=1").body |>
-    String |>
-    JSON.parse |>
-    body -> TGParcel(parcel.bot, body)
+  TGParcel(parcel.bot, get_update(parcel.bot.api_key, next_id))
 end
 
 end # module
