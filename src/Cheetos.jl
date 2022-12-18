@@ -2,6 +2,7 @@ module Cheetos
 
 include("YahooFinance.jl")
 include("TelegramBot.jl")
+include("AlphaVantage.jl")
 
 using BusinessDays: isbday 
 using Dates: today, hour, now, dayname
