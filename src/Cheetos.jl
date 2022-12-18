@@ -22,7 +22,7 @@ function chasing()
       handle_subscription! |>
       handle_latest_price |>
       handle_confirm_update
-    sleep(30) # a lazy bot...
+    sleep(3) # a lazy bot...
   end
 end
 
