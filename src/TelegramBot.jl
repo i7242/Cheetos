@@ -18,13 +18,11 @@ using HTTP, JSON, ConfigEnv
 using .AlphaVantage
 
 export TGBot,TGParcel
-export get_TGBot, get_latest_update
-export handle_subscription!, handle_voo_smv_60, handle_random_response, handle_confirm_update
+export get_TGBot, get_latest_update, handle_subscription!, handle_confirm_update
+export handle_latest_price, handle_voo_smv_60, handle_random_response
 
 const BOT_URL_PRE="https://api.telegram.org/bot"
 const VOO="VOO"
-
-
 
 """
 TGBot
@@ -56,9 +54,6 @@ function get_TGBot()::TGBot
   TGBot(ENV["CHEETOS_TG_BOT_API_KEY"],Set())
 end
 
-
-
-
 """
 Only get the latest one update by set `offset=-1&limit=1`. Any message in between will be ignored.
 """
@@ -74,8 +69,6 @@ Send text message.
 function send_message(key::String, id::String, msg::String)
   HTTP.post(BOT_URL_PRE*key*"/sendMessage?chat_id="*id*"&text="*msg)
 end
-
-
 
 """
 Original response body parsed to JSON will be returned.
@@ -120,6 +113,26 @@ function handle_subscription!(parcel::TGParcel)::TGParcel
   chat_id in parcel.bot.chat_ids && return parcel
   push!(parcel.bot.chat_ids, chat_id)
   @info "added chat $chat_id to list)"
+  parcel
+end
+
+"""
+Handle any ticket, get prices.
+"""
+function handle_latest_price(parcel::TGParcel)::TGParcel
+  isempty(parcel.body["result"]) && return parcel
+  msg = get_parcel_message(parcel)
+  if (msg[1] == '$')
+    try
+      id = msg[2:end] |> uppercase
+      df = get_latest_price(id)
+      msg = "$id : {time: $(df[1,"timestamp"]), open: $(df[1,"open"]), high: $(df[1,"high"]), low: $(df[1,"low"]), close: $(df[1,"close"])}"
+      @info msg
+      send_message(parcel.bot.api_key, get_chat_id(parcel), msg)
+    catch e
+      @info e
+    end
+  end
   parcel
 end
 

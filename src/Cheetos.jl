@@ -20,9 +20,9 @@ function chasing()
     tg_bot |>
       get_latest_update |>
       handle_subscription! |>
-      handle_voo_smv_60 |>
+      handle_latest_price |>
       handle_confirm_update
-    sleep(3)
+    sleep(30) # a lazy bot...
   end
 end
 
