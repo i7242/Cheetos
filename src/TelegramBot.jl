@@ -22,7 +22,6 @@ export get_TGBot, get_latest_update
 export handle_subscription!, handle_voo_smv_60, handle_random_response, handle_confirm_update
 
 const BOT_URL_PRE="https://api.telegram.org/bot"
-const SUB="SUB" # need a better code for subscription...
 const VOO="VOO"
 
 
@@ -112,16 +111,15 @@ function get_update_id(parcel::TGParcel)::String
 end
 
 """
-Add chat id to subscription if got message "SUB".
+Always add new chat to subscription.
   - this will modify the array of chat_id inside the bot
 """
 function handle_subscription!(parcel::TGParcel)::TGParcel
   isempty(parcel.body["result"]) && return parcel
-  if (SUB == get_parcel_message(parcel))
-    chat_id = get_chat_id(parcel)
-    push!(parcel.bot.chat_ids, chat_id)
-    @info "added chat $chat_id to list)"
-  end
+  chat_id = get_chat_id(parcel)
+  chat_id in parcel.bot.chat_ids && return parcel
+  push!(parcel.bot.chat_ids, chat_id)
+  @info "added chat $chat_id to list)"
   parcel
 end
 
