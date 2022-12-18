@@ -22,7 +22,7 @@ function chasing()
       handle_subscription! |>
       handle_voo_smv_60 |>
       handle_confirm_update
-    sleep(5)
+    sleep(3)
   end
 end
 
