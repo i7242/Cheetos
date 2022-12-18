@@ -1,5 +1,7 @@
 module TelegramBot
 
+include("AlphaVantage.jl")
+
 #=
   Switch to use Telegram.
   - https://t.me/Cheetos_TG_Bot
@@ -13,12 +15,15 @@ module TelegramBot
 =#
 
 using HTTP, JSON, ConfigEnv
+using .AlphaVantage
 
 export TGBot,TGParcel
-export get_TGBot, get_latest_update, handle_subscription!, handle_random_response, handle_confirm_update
+export get_TGBot, get_latest_update
+export handle_subscription!, handle_voo_smv_60, handle_random_response, handle_confirm_update
 
 const BOT_URL_PRE="https://api.telegram.org/bot"
-const SUB="/SUB"
+const SUB="SUB" # need a better code for subscription...
+const VOO="VOO"
 
 """
 TGBot
@@ -95,6 +100,22 @@ function handle_subscription!(parcel::TGParcel)::TGParcel
   isempty(parcel.body["result"]) && return parcel
   if (SUB == get_parcel_message(parcel))
     push!(parcel.bot.chat_ids, get_chat_id(parcel))
+  end
+  parcel
+end
+
+"""
+VOO 60 day simple moving average.
+"""
+function handle_voo_smv_60(parcel::TGParcel)::TGParcel
+  isempty(parcel.body["result"]) && return parcel
+  if (VOO == get_parcel_message(parcel))
+    df = get_voo_smv_60()
+    msg = "$VOO : {time: $(df[1, "time"]), SMA: $(df[1, "SMA"])}"
+    @info msg
+    HTTP.post(BOT_URL_PRE*parcel.bot.api_key*
+              "/sendMessage?chat_id="*
+              get_chat_id(parcel)*"&text="*msg)
   end
   parcel
 end

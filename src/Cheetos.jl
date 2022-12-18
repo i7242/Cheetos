@@ -20,7 +20,7 @@ function chasing()
     tg_bot |>
       get_latest_update |>
       handle_subscription! |>
-      handle_random_response |>
+      handle_voo_smv_60 |>
       handle_confirm_update
     sleep(5)
   end
