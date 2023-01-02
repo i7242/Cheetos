@@ -19,7 +19,7 @@ using .AlphaVantage
 
 export TGBot,TGParcel
 export get_TGBot, get_latest_update, handle_subscription!, handle_confirm_update
-export handle_latest_price, handle_query_balance, handle_voo_smv_60, handle_random_response
+export handle_latest_price, handle_query_balance, handle_add_monitor!
 
 const BOT_URL_PRE="https://api.telegram.org/bot"
 const VOO="VOO"
@@ -29,9 +29,15 @@ TGBot
   - hold api key of the bot
   - chat_id is used for subscription
 """
-struct TGBot
+mutable struct TGBot
   api_key::String # get from ENV["CHEETOS_TG_BOT_API_KEY"]
   chat_ids::Set{String} # keep chat_id for subscribed chat
+  #=
+  Assume the monitor will be simple, following rule:
+    - [<symbol>, <shares>, <matching_cash_in_USD>, <status_flag>]
+    - ["UPRO", 10, 400.00, "true"]
+  =# 
+  monitor::Array{Any}
 end
 
 """
@@ -51,16 +57,7 @@ Create TGBot:
 """
 function get_TGBot()::TGBot
   dotenv()
-  TGBot(ENV["CHEETOS_TG_BOT_API_KEY"],Set())
-end
-
-"""
-Only get the latest one update by set `offset=-1&limit=1`. Any message in between will be ignored.
-"""
-function get_update(key::String, offset::String)::Dict{Any,Any}
-  HTTP.get(BOT_URL_PRE*key*"/getUpdates?offset=$offset&limit=1").body |>
-    String |>
-    JSON.parse
+  TGBot(ENV["CHEETOS_TG_BOT_API_KEY"],Set(),[])
 end
 
 """
@@ -72,6 +69,15 @@ end
 
 """
 Original response body parsed to JSON will be returned.
+"""
+function get_update(key::String, offset::String)::Dict{Any,Any}
+  HTTP.get(BOT_URL_PRE*key*"/getUpdates?offset=$offset&limit=1").body |>
+    String |>
+    JSON.parse
+end
+
+"""
+Only get the latest one update by set `offset=-1&limit=1`. Any message in between will be ignored.
 """
 function get_latest_update(bot::TGBot)::TGParcel
   TGParcel(bot, get_update(bot.api_key, "-1"))
@@ -168,18 +174,38 @@ function handle_query_balance(parcel::TGParcel)::TGParcel
   parcel
 end
 
-
 """
-VOO 60 day simple moving average.
+Handle add monitor for rebalancing alarm.
 """
-function handle_voo_smv_60(parcel::TGParcel)::TGParcel
+function handle_add_monitor!(parcel::TGParcel)::TGParcel
   isempty(parcel.body["result"]) && return parcel
-  if (VOO == get_parcel_message(parcel))
-    df = get_voo_smv_60()
-    msg = "$VOO : {time: $(df[1, "time"]), SMA: $(df[1, "SMA"])}"
-    @info msg
-    send_message(parcel.bot.api_key, get_chat_id(parcel), msg)
+  msg = get_parcel_message(parcel)
+
+  # check if matches query pattern by count '@'
+  bv = [c for c in msg] .== '@'
+  ct = count(>(0), bv)
+  if ct == 3
+    try
+      query = [s for s in split(msg, '@') if !isempty(s)]
+      push!(query, "false")
+
+      # set monitor in bot
+      parcel.bot.monitor = query
+
+      # following is same to handle_query_balance(), need to extract a function
+      id = query[1] |> uppercase
+      price = get_latest_price(id).close[1]
+      shares = parse(Int64, query[2])
+      cash = parse(Float64, query[3])
+      ratio = round(price*shares/cash; digits=2)
+      rsp = "$(id) price: $(price), number of shares: $(shares), cash: $(cash) balance ratio: $(ratio)"
+      @info rsp
+      send_message(parcel.bot.api_key, get_chat_id(parcel), rsp)
+    catch e
+        @info e
+    end
   end
+
   parcel
 end
 

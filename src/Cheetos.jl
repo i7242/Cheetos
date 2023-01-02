@@ -19,6 +19,7 @@ function chasing()
       handle_subscription! |>
       handle_latest_price |>
       handle_query_balance |>
+      handle_add_monitor! |>
       handle_confirm_update
 
       sleep(10) # a lazy bot...
