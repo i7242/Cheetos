@@ -3,10 +3,7 @@ module Cheetos
 include("TelegramBot.jl")
 include("AlphaVantage.jl")
 
-using BusinessDays: isbday 
-using Dates: today, hour, now, dayname
 using ConfigEnv
-
 using .TelegramBot
 using .AlphaVantage
 
@@ -22,7 +19,8 @@ function chasing()
       handle_subscription! |>
       handle_latest_price |>
       handle_confirm_update
-    sleep(3) # a lazy bot...
+
+    # sleep(10) # a lazy bot...
   end
 end
 
