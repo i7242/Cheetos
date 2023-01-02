@@ -156,7 +156,7 @@ function handle_query_balance(parcel::TGParcel)::TGParcel
       price = get_latest_price(id).close[1]
       shares = parse(Int64, query[2])
       cash = parse(Float64, query[3])
-      ratio = price*shares/cash
+      ratio = round(price*shares/cash; digits=2)
       rsp = "$(id) price: $(price), number of shares: $(shares), cash: $(cash) balance ratio: $(ratio)"
       @info rsp
       send_message(parcel.bot.api_key, get_chat_id(parcel), rsp)
