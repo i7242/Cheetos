@@ -18,9 +18,10 @@ function chasing()
       get_latest_update |>
       handle_subscription! |>
       handle_latest_price |>
+      handle_query_balance |>
       handle_confirm_update
 
-    # sleep(10) # a lazy bot...
+      sleep(10) # a lazy bot...
   end
 end
 

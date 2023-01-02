@@ -19,7 +19,7 @@ using .AlphaVantage
 
 export TGBot,TGParcel
 export get_TGBot, get_latest_update, handle_subscription!, handle_confirm_update
-export handle_latest_price, handle_voo_smv_60, handle_random_response
+export handle_latest_price, handle_query_balance, handle_voo_smv_60, handle_random_response
 
 const BOT_URL_PRE="https://api.telegram.org/bot"
 const VOO="VOO"
@@ -137,6 +137,39 @@ function handle_latest_price(parcel::TGParcel)::TGParcel
 end
 
 """
+Handle query of simple balancing ratio.
+Query format with UPRO example:
+    ?<symbol>?<shares>?<USDcash>
+    ?UPRO?12?400
+"""
+function handle_query_balance(parcel::TGParcel)::TGParcel
+  isempty(parcel.body["result"]) && return parcel
+  msg = get_parcel_message(parcel)
+
+  # check if matches query pattern by count '?'
+  bv = [c for c in msg] .== '?'
+  ct = count(>(0), bv)
+  if ct == 3
+    try
+      query = [s for s in split(msg, '?') if !isempty(s)]
+      id = query[1] |> uppercase
+      price = get_latest_price(id).close[1]
+      shares = parse(Int64, query[2])
+      cash = parse(Float64, query[3])
+      ratio = price*shares/cash
+      rsp = "$(id) price: $(price), number of shares: $(shares), cash: $(cash) balance ratio: $(ratio)"
+      @info rsp
+      send_message(parcel.bot.api_key, get_chat_id(parcel), rsp)
+    catch e
+        @info e
+    end
+  end
+
+  parcel
+end
+
+
+"""
 VOO 60 day simple moving average.
 """
 function handle_voo_smv_60(parcel::TGParcel)::TGParcel
@@ -147,15 +180,6 @@ function handle_voo_smv_60(parcel::TGParcel)::TGParcel
     @info msg
     send_message(parcel.bot.api_key, get_chat_id(parcel), msg)
   end
-  parcel
-end
-
-"""
-Send a random number for test usage.
-"""
-function handle_random_response(parcel::TGParcel)::TGParcel
-  isempty(parcel.body["result"]) && return parcel
-  send_message(parcel.bot.api_key, get_chat_id(parcel), string(rand()))
   parcel
 end
 
