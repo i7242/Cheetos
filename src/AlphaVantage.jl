@@ -17,13 +17,14 @@ const API_KEY = "apikey="
 Get latest intraday price for input id/symbol.
 """
 function get_latest_price(id::String)::DataFrame
-  HTTP.get(ALPHA_URL_PRE*"function=TIME_SERIES_INTRADAY&symbol="*id*
+  df = HTTP.get(ALPHA_URL_PRE*"function=TIME_SERIES_INTRADAY&symbol="*id*
             "&interval=15min&outputsize=compact&datatype=csv&apikey="*
             ENV["ALPHA_VANTAGE_API_KEY"]).body |>
-    String |>
-    IOBuffer |>
-    CSV.File |>
-    DataFrame
+        String |>
+        IOBuffer |>
+        CSV.File |>
+        DataFrame
+  sort!(df, :timestamp, rev=true)
 end
 
 function get_voo_smv_60()::DataFrame
